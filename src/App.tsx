@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ScreenName, Track, Playlist, UserProfile } from './types';
-import { initialUser, allTracks, initialPlaylists } from './data/musicData';
+import { ScreenName, Track, Playlist, UserProfile, Album } from './types';
+import { initialUser, allTracks, initialPlaylists, downloadedAlbums } from './data/musicData';
 import { defaultUsers } from './data/userData';
 import { audioEngine } from './services/audioService';
 import { WelcomeScreen } from './screens/WelcomeScreen';
@@ -67,7 +67,45 @@ export default function App() {
   }, [user]);
 
   // Tracks & Playlists State
-  const [tracks, setTracks] = useState<Track[]>(allTracks);
+  const [tracks, setTracks] = useState<Track[]>(() => {
+    try {
+      const saved = localStorage.getItem('saregama_tracks');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return allTracks;
+  });
+
+  // Albums State with persistence
+  const [albums, setAlbums] = useState<Album[]>(() => {
+    try {
+      const saved = localStorage.getItem('saregama_albums');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return downloadedAlbums;
+  });
+
+  // Save tracks to storage
+  useEffect(() => {
+    try {
+      localStorage.setItem('saregama_tracks', JSON.stringify(tracks));
+    } catch {
+      // ignore
+    }
+  }, [tracks]);
+
+  // Save albums to storage
+  useEffect(() => {
+    try {
+      localStorage.setItem('saregama_albums', JSON.stringify(albums));
+    } catch {
+      // ignore
+    }
+  }, [albums]);
+
   const [playlists, setPlaylists] = useState<Playlist[]>(initialPlaylists);
   const [likedTrackIds, setLikedTrackIds] = useState<string[]>(['track-1', 'track-2', 'track-3']);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -279,6 +317,46 @@ export default function App() {
     setCurrentScreen('home');
   };
 
+  // Album Artwork & Poster Handlers
+  const handleUpdateAlbumPoster = (albumId: string, newCoverUrl: string, syncTracks = true) => {
+    setAlbums((prev) =>
+      prev.map((alb) => (alb.id === albumId ? { ...alb, coverUrl: newCoverUrl } : alb))
+    );
+    const targetAlbum = albums.find((a) => a.id === albumId);
+    if (syncTracks && targetAlbum) {
+      setTracks((prev) =>
+        prev.map((t) => {
+          if (t.album === targetAlbum.title || t.id.startsWith(albumId)) {
+            return { ...t, coverUrl: newCoverUrl };
+          }
+          return t;
+        })
+      );
+      if (currentTrack && (currentTrack.album === targetAlbum.title || currentTrack.id.startsWith(albumId))) {
+        setCurrentTrack((prev) => (prev ? { ...prev, coverUrl: newCoverUrl } : null));
+      }
+    }
+  };
+
+  const handleUpdateTrackPoster = (trackId: string, newCoverUrl: string) => {
+    setTracks((prev) =>
+      prev.map((t) => (t.id === trackId ? { ...t, coverUrl: newCoverUrl } : t))
+    );
+    if (currentTrack && currentTrack.id === trackId) {
+      setCurrentTrack((prev) => (prev ? { ...prev, coverUrl: newCoverUrl } : null));
+    }
+  };
+
+  const handleAddAlbum = (newAlbum: Album) => {
+    setAlbums((prev) => [newAlbum, ...prev]);
+  };
+
+  const handleUpdateAlbumDetails = (updatedAlbum: Album) => {
+    setAlbums((prev) =>
+      prev.map((alb) => (alb.id === updatedAlbum.id ? updatedAlbum : alb))
+    );
+  };
+
   // 1. WELCOME SCREEN
   if (currentScreen === 'welcome') {
     return (
@@ -464,6 +542,14 @@ export default function App() {
               onUpdateUsersList={setUsersList}
               onImpersonateUser={handleImpersonateUser}
               onExitAdmin={() => setCurrentScreen('home')}
+              albums={albums}
+              onUpdateAlbums={setAlbums}
+              tracks={tracks}
+              onUpdateTracks={setTracks}
+              onUpdateAlbumPoster={handleUpdateAlbumPoster}
+              onUpdateTrackPoster={handleUpdateTrackPoster}
+              onAddAlbum={handleAddAlbum}
+              onUpdateAlbumDetails={handleUpdateAlbumDetails}
             />
           )}
 
@@ -471,6 +557,7 @@ export default function App() {
             <LibraryScreen
               tracks={tracks}
               playlists={playlists}
+              albums={albums}
               onPlayTrack={handlePlayTrack}
               onOpenPlaylist={(pl) => setActivePlaylistModal(pl)}
               onCreatePlaylistOpen={() => setIsCreatePlaylistOpen(true)}

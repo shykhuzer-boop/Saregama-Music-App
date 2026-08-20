@@ -17,6 +17,7 @@ import {
 interface LibraryScreenProps {
   tracks: Track[];
   playlists: Playlist[];
+  albums?: Album[];
   onPlayTrack: (track: Track) => void;
   onOpenPlaylist: (playlist: Playlist) => void;
   onCreatePlaylistOpen: () => void;
@@ -29,6 +30,7 @@ interface LibraryScreenProps {
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   tracks,
   playlists,
+  albums: propAlbums,
   onPlayTrack,
   onOpenPlaylist,
   onCreatePlaylistOpen,
@@ -38,7 +40,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({
   onTogglePlay,
 }) => {
   const [activeTab, setActiveTab] = useState<'playlists' | 'downloads' | 'history'>('downloads');
-  const [albums, setAlbums] = useState<Album[]>(downloadedAlbums);
+  const albums = propAlbums || downloadedAlbums;
 
   const downloadedTracks = tracks.filter(t => t.isDownloaded);
 

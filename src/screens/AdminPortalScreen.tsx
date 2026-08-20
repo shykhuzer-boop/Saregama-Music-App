@@ -24,10 +24,15 @@ import {
   MoreVertical,
   X,
   Save,
-  Check
+  Check,
+  Image as ImageIcon,
+  Upload,
+  Layers,
+  FileImage
 } from 'lucide-react';
-import { UserProfile, AdminLog } from '../types';
+import { UserProfile, AdminLog, Album, Track } from '../types';
 import { defaultUsers, initialAdminLogs } from '../data/userData';
+import { AdminArtworkStudio } from '../components/AdminArtworkStudio';
 
 interface AdminPortalScreenProps {
   currentUser: UserProfile;
@@ -35,6 +40,14 @@ interface AdminPortalScreenProps {
   onUpdateUsersList: (users: UserProfile[]) => void;
   onImpersonateUser: (user: UserProfile) => void;
   onExitAdmin: () => void;
+  albums?: Album[];
+  onUpdateAlbums?: (albums: Album[]) => void;
+  tracks?: Track[];
+  onUpdateTracks?: (tracks: Track[]) => void;
+  onUpdateAlbumPoster?: (albumId: string, newCoverUrl: string, syncTracks?: boolean) => void;
+  onUpdateTrackPoster?: (trackId: string, newCoverUrl: string) => void;
+  onAddAlbum?: (newAlbum: Album) => void;
+  onUpdateAlbumDetails?: (updatedAlbum: Album) => void;
 }
 
 export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
@@ -43,12 +56,21 @@ export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
   onUpdateUsersList,
   onImpersonateUser,
   onExitAdmin,
+  albums = [],
+  tracks = [],
+  onUpdateAlbumPoster = () => {},
+  onUpdateTrackPoster = () => {},
+  onAddAlbum = () => {},
+  onUpdateAlbumDetails = () => {},
 }) => {
   // Admin Gate State (Single person authorized access)
   const isMasterAdmin = currentUser.role === 'admin' || currentUser.email === 'admin@saregama.com';
   const [adminPasskey, setAdminPasskey] = useState('');
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(isMasterAdmin);
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
+
+  // Active Admin Sub-Panel Tab
+  const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'artwork' | 'logs'>('users');
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -309,8 +331,24 @@ export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
 
           <div className="flex items-center gap-3">
             <button
+              id="admin-open-artwork-studio-btn"
+              onClick={() => setActiveAdminTab('artwork')}
+              className={`font-bold text-xs sm:text-sm px-4 py-3 rounded-xl transition-all flex items-center gap-2 shadow-md hover:scale-105 active:scale-95 ${
+                activeAdminTab === 'artwork'
+                  ? 'bg-[#cafd1e] text-[#141c00]'
+                  : 'bg-[#192600] text-[#00fde7] border border-[#00fde7]/40 hover:bg-[#233300]'
+              }`}
+            >
+              <Upload size={16} />
+              <span>Upload Album Poster</span>
+            </button>
+
+            <button
               id="admin-add-user-btn"
-              onClick={() => setIsAddUserOpen(true)}
+              onClick={() => {
+                setActiveAdminTab('users');
+                setIsAddUserOpen(true);
+              }}
               className="bg-[#00fde7] hover:bg-[#49dbf4] text-[#00443d] font-bold text-xs sm:text-sm px-4 py-3 rounded-xl transition-all flex items-center gap-2 shadow-md shadow-[#00fde7]/20 hover:scale-105 active:scale-95"
             >
               <UserPlus size={16} />
@@ -328,16 +366,22 @@ export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
 
         {/* Metric Cards Row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-white/10">
-          <div className="p-3.5 bg-[#0a1000]/80 rounded-2xl border border-white/5">
+          <div 
+            onClick={() => setActiveAdminTab('users')}
+            className="p-3.5 bg-[#0a1000]/80 rounded-2xl border border-white/5 cursor-pointer hover:border-[#00fde7]/40 transition-colors"
+          >
             <div className="text-[11px] font-bold text-[#92b900] uppercase">Total Users</div>
             <div className="text-2xl font-serif-heading font-bold text-white mt-1">{totalUsersCount}</div>
             <div className="text-[10px] text-[#00fde7] mt-0.5">New & Registered</div>
           </div>
 
-          <div className="p-3.5 bg-[#0a1000]/80 rounded-2xl border border-white/5">
-            <div className="text-[11px] font-bold text-[#92b900] uppercase">Pro Subscribers</div>
-            <div className="text-2xl font-serif-heading font-bold text-[#00fde7] mt-1">{proUsersCount}</div>
-            <div className="text-[10px] text-[#cafd1e] mt-0.5">Student & Annual</div>
+          <div 
+            onClick={() => setActiveAdminTab('artwork')}
+            className="p-3.5 bg-[#0a1000]/80 rounded-2xl border border-white/5 cursor-pointer hover:border-[#00fde7]/40 transition-colors"
+          >
+            <div className="text-[11px] font-bold text-[#92b900] uppercase">Catalog Albums</div>
+            <div className="text-2xl font-serif-heading font-bold text-[#cafd1e] mt-1">{albums.length}</div>
+            <div className="text-[10px] text-[#00fde7] mt-0.5">Custom Posters Active</div>
           </div>
 
           <div className="p-3.5 bg-[#0a1000]/80 rounded-2xl border border-white/5">
@@ -346,16 +390,78 @@ export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
             <div className="text-[10px] text-[#92b900] mt-0.5">Lossless Cached Pool</div>
           </div>
 
-          <div className="p-3.5 bg-[#0a1000]/80 rounded-2xl border border-white/5">
-            <div className="text-[11px] font-bold text-[#92b900] uppercase">Suspended / Flagged</div>
-            <div className="text-2xl font-serif-heading font-bold text-[#ff5b5b] mt-1">{suspendedCount}</div>
-            <div className="text-[10px] text-[#92b900] mt-0.5">Scraping / Banned</div>
+          <div 
+            onClick={() => setActiveAdminTab('logs')}
+            className="p-3.5 bg-[#0a1000]/80 rounded-2xl border border-white/5 cursor-pointer hover:border-[#00fde7]/40 transition-colors"
+          >
+            <div className="text-[11px] font-bold text-[#92b900] uppercase">Audit Logs</div>
+            <div className="text-2xl font-serif-heading font-bold text-[#ff5b5b] mt-1">{adminLogs.length}</div>
+            <div className="text-[10px] text-[#92b900] mt-0.5">Security Events Logged</div>
           </div>
         </div>
       </section>
 
-      {/* User Management Section */}
-      <section className="bg-[#141c00] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-xl">
+      {/* Main Admin Section Tab Switcher */}
+      <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-4 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-2">
+          <button
+            id="admin-tab-users"
+            onClick={() => setActiveAdminTab('users')}
+            className={`px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 ${
+              activeAdminTab === 'users'
+                ? 'bg-[#00fde7] text-[#00443d] shadow-lg shadow-[#00fde7]/20 scale-105'
+                : 'bg-[#141c00] text-[#92b900] hover:text-white border border-white/5'
+            }`}
+          >
+            <Users size={16} />
+            <span>User Management ({usersList.length})</span>
+          </button>
+
+          <button
+            id="admin-tab-artwork"
+            onClick={() => setActiveAdminTab('artwork')}
+            className={`px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 ${
+              activeAdminTab === 'artwork'
+                ? 'bg-[#cafd1e] text-[#141c00] shadow-lg shadow-[#cafd1e]/20 scale-105'
+                : 'bg-[#141c00] text-[#92b900] hover:text-white border border-white/5'
+            }`}
+          >
+            <Upload size={16} />
+            <span>Album Posters & Artwork Studio ({albums.length})</span>
+          </button>
+
+          <button
+            id="admin-tab-logs"
+            onClick={() => setActiveAdminTab('logs')}
+            className={`px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 ${
+              activeAdminTab === 'logs'
+                ? 'bg-[#ffb700] text-[#332200] shadow-lg scale-105'
+                : 'bg-[#141c00] text-[#92b900] hover:text-white border border-white/5'
+            }`}
+          >
+            <Activity size={16} />
+            <span>Security & Audit Trail</span>
+          </button>
+        </div>
+      </div>
+
+      {/* TAB 1: ALBUM POSTERS & ARTWORK STUDIO */}
+      {activeAdminTab === 'artwork' && (
+        <AdminArtworkStudio
+          albums={albums}
+          tracks={tracks}
+          onUpdateAlbumPoster={onUpdateAlbumPoster}
+          onUpdateTrackPoster={onUpdateTrackPoster}
+          onAddAlbum={onAddAlbum}
+          onUpdateAlbumDetails={onUpdateAlbumDetails}
+          onShowToast={showToast}
+          onLogAction={logAdminAction}
+        />
+      )}
+
+      {/* TAB 2: USER MANAGEMENT DIRECTORY */}
+      {activeAdminTab === 'users' && (
+        <section className="bg-[#141c00] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="font-serif-heading font-bold text-xl text-white flex items-center gap-2">
@@ -568,38 +674,46 @@ export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
           </table>
         </div>
       </section>
+      )}
 
-      {/* Admin Audit Logs Stream */}
-      <section className="bg-[#141c00] border border-white/10 rounded-3xl p-6 sm:p-8">
-        <h3 className="font-serif-heading font-bold text-lg text-white mb-4 flex items-center gap-2">
-          <Activity size={18} className="text-[#00fde7]" />
-          <span>Master Supervisor Audit Trail & System Events</span>
-        </h3>
+      {/* TAB 3: ADMIN AUDIT LOGS STREAM */}
+      {(activeAdminTab === 'logs' || activeAdminTab === 'users') && (
+        <section className="bg-[#141c00] border border-white/10 rounded-3xl p-6 sm:p-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-serif-heading font-bold text-lg text-white flex items-center gap-2">
+              <Activity size={18} className="text-[#00fde7]" />
+              <span>Master Supervisor Audit Trail & System Events</span>
+            </h3>
+            <span className="text-xs text-[#92b900] bg-[#0a1000] px-3 py-1 rounded-full border border-white/5">
+              {adminLogs.length} Events Recorded
+            </span>
+          </div>
 
-        <div className="space-y-2.5">
-          {(adminLogs || []).slice(0, 6).map((log) => (
-            <div
-              key={log.id}
-              className="p-3.5 bg-[#0a1000] border border-white/5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-            >
-              <div className="flex items-center gap-3">
-                <span className={`w-2 h-2 rounded-full ${
-                  log.type === 'plan_change' ? 'bg-[#00fde7]' : log.type === 'user_add' ? 'bg-[#cafd1e]' : 'bg-[#ffb700]'
-                }`} />
-                <div>
-                  <span className="font-bold text-white mr-2">{log.action}:</span>
-                  <span className="text-[#cafd1e]">{log.targetUser}</span>
-                  <span className="text-[#92b900] ml-2 font-normal">— {log.details}</span>
+          <div className="space-y-2.5">
+            {(adminLogs || []).slice(0, activeAdminTab === 'logs' ? 20 : 6).map((log) => (
+              <div
+                key={log.id}
+                className="p-3.5 bg-[#0a1000] border border-white/5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs hover:border-white/10 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${
+                    log.type === 'plan_change' ? 'bg-[#00fde7]' : log.type === 'user_add' ? 'bg-[#cafd1e]' : 'bg-[#ffb700]'
+                  }`} />
+                  <div>
+                    <span className="font-bold text-white mr-2">{log.action}:</span>
+                    <span className="text-[#cafd1e] font-semibold">{log.targetUser}</span>
+                    <span className="text-[#92b900] ml-2 font-normal">— {log.details}</span>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-[#92b900] sm:text-right shrink-0">
+                  {log.timestamp}
                 </div>
               </div>
-
-              <div className="text-[11px] text-[#92b900] sm:text-right shrink-0">
-                {log.timestamp}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* MODAL: ADD NEW USER */}
       {isAddUserOpen && (
