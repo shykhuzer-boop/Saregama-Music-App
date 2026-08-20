@@ -1,0 +1,6 @@
+{
+  "name": "Saregama",
+  "description": "Ad-free, high-fidelity music streaming platform featuring Hindi & Bollywood hits, Indian classical ragas, offline downloads, and losslessly mastered audio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

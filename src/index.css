@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-serif: 'Ibm Plex Serif', serif;
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-geist: 'Geist', sans-serif;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #0a1000;
+    color: #cafd1e;
+  }
+
+  h1, h2, h3, h4, .font-serif-heading {
+    font-family: var(--font-serif);
+  }
+}
+
+/* Custom Utilities for Saregama */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.ambient-cyan-glow {
+  box-shadow: 0px 10px 30px rgba(0, 253, 231, 0.15);
+}
+
+.ambient-album-glow {
+  box-shadow: 0px 15px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 253, 231, 0.12);
+}
+
+.glass-panel {
+  background: rgba(20, 28, 0, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.hero-gradient {
+  background: linear-gradient(to bottom, rgba(10, 16, 0, 0.2) 0%, rgba(10, 16, 0, 0.85) 65%, rgba(10, 16, 0, 1) 100%);
+}
+
+.player-gradient {
+  background: radial-gradient(circle at 50% 30%, rgba(0, 253, 231, 0.08) 0%, rgba(10, 16, 0, 0.98) 70%, #0a1000 100%);
+}
