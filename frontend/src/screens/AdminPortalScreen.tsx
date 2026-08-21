@@ -210,7 +210,7 @@ export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
   };
 
   // Edit User
-  const handleSaveEditUser = (e: React.FormEvent) => { = (e: React.FormEvent) => {
+  const handleSaveEditUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
 
