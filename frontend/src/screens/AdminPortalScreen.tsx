@@ -4,7 +4,6 @@ import {
   ShieldCheck, 
   UserPlus, 
   Search, 
-  Filter, 
   Trash2, 
   Edit3, 
   Lock, 
@@ -12,22 +11,16 @@ import {
   Sparkles, 
   HardDrive, 
   CheckCircle2, 
-  AlertTriangle, 
-  RefreshCw, 
   Activity, 
   Key, 
   GraduationCap, 
-  ArrowRight,
   Eye,
   ShieldAlert,
-  Sliders,
-  MoreVertical,
   X,
   Save,
-  Check,
-  Image as ImageIcon,
   Upload,
-  Layers,
+  Music,
+  Plus,
   FileImage
 } from 'lucide-react';
 import { UserProfile, AdminLog, Album, Track } from '../types';
@@ -48,6 +41,7 @@ interface AdminPortalScreenProps {
   onUpdateTrackPoster?: (trackId: string, newCoverUrl: string) => void;
   onAddAlbum?: (newAlbum: Album) => void;
   onUpdateAlbumDetails?: (updatedAlbum: Album) => void;
+  onAddTrack?: (newTrack: Track) => void;
 }
 
 export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
@@ -62,6 +56,7 @@ export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
   onUpdateTrackPoster = () => {},
   onAddAlbum = () => {},
   onUpdateAlbumDetails = () => {},
+  onAddTrack = () => {},
 }) => {
   // Admin Gate State (Single person authorized access)
   const isMasterAdmin = currentUser.role === 'admin' || currentUser.email === 'admin@saregama.com';
@@ -70,7 +65,7 @@ export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
   // Active Admin Sub-Panel Tab
-  const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'artwork' | 'logs'>('users');
+  const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'artwork' | 'songs' | 'logs'>('users');
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,6 +87,24 @@ export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
   const [newUserStorageMB, setNewUserStorageMB] = useState(32000);
   const [newUserIsPro, setNewUserIsPro] = useState(true);
   const [newUserRole, setNewUserRole] = useState<'user' | 'admin'>('user');
+
+  // ── Add Song Form State ───────────────────────────────────────────────────
+  const [songTitle, setSongTitle] = useState('');
+  const [songArtist, setSongArtist] = useState('');
+  const [songAlbum, setSongAlbum] = useState('');
+  const [songGenre, setSongGenre] = useState<Track['genre']>('Hindi & Bollywood');
+  const [songLanguage, setSongLanguage] = useState<Track['language']>('Hindi');
+  const [songDurationMin, setSongDurationMin] = useState(3);
+  const [songDurationSec, setSongDurationSec] = useState(30);
+  const [songCoverUrl, setSongCoverUrl] = useState('');
+  const [songAudioPreset, setSongAudioPreset] = useState<Track['audioPreset']>('bollywood_lofi');
+  const [songMoodTag, setSongMoodTag] = useState('');
+  const [songDescription, setSongDescription] = useState('');
+  const [songIsPro, setSongIsPro] = useState(false);
+  const [songBinauralFreq, setSongBinauralFreq] = useState('');
+  const [songRagaTime, setSongRagaTime] = useState<Track['ragaTime'] | ''>('');
+  // Cover preview from file
+  const [songCoverPreview, setSongCoverPreview] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -159,8 +172,45 @@ export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
     setIsAddUserOpen(false);
   };
 
+  // Add Song
+  const handleAddSong = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!songTitle.trim() || !songArtist.trim()) return;
+
+    const coverFinal = songCoverPreview || songCoverUrl.trim() ||
+      'https://lh3.googleusercontent.com/aida-public/AB6AXuCNt-rgEekjRMr1yBmhzIlgBHFFB_A_OwH96mQdCzjPF4pFWiHnd9MYsgzzZJ1Krr06pESrswrshDxNPhFa4t2dVO1jgqiWHlS32i-vta7u6Lx4o_I2gP9LrkOz60JQkd2sPMuRY46Qy6VkQBy7OdZgD5tbUPbzXBPKJxWMIkEme3r38fOiiojl-SvFs-c4J4H0Eof-CYxD1OaG-ki5h0MT_6W_0pOjpIwV4_1Yzd6dpHNw1DhxgEf2';
+
+    const newTrack: Track = {
+      id: `track-admin-${Date.now()}`,
+      title: songTitle.trim(),
+      artist: songArtist.trim(),
+      album: songAlbum.trim() || undefined,
+      genre: songGenre,
+      duration: songDurationMin * 60 + songDurationSec,
+      coverUrl: coverFinal,
+      isPro: songIsPro,
+      isDownloaded: false,
+      audioPreset: songAudioPreset,
+      language: songLanguage,
+      moodTag: songMoodTag.trim() || undefined,
+      description: songDescription.trim() || undefined,
+      binauralFreq: songBinauralFreq ? Number(songBinauralFreq) : undefined,
+      ragaTime: (songRagaTime || undefined) as Track['ragaTime'],
+    };
+
+    onAddTrack(newTrack);
+    logAdminAction('Song Added', newTrack.title, `Added "${newTrack.title}" by ${newTrack.artist} (${newTrack.genre})`, 'system');
+    showToast(`Song "${newTrack.title}" successfully added to the catalog.`);
+
+    // Reset form
+    setSongTitle(''); setSongArtist(''); setSongAlbum(''); setSongMoodTag('');
+    setSongDescription(''); setSongCoverUrl(''); setSongCoverPreview(null);
+    setSongBinauralFreq(''); setSongRagaTime(''); setSongIsPro(false);
+    setSongDurationMin(3); setSongDurationSec(30);
+  };
+
   // Edit User
-  const handleSaveEditUser = (e: React.FormEvent) => {
+  const handleSaveEditUser = (e: React.FormEvent) => { = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
 
@@ -431,6 +481,19 @@ export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
           </button>
 
           <button
+            id="admin-tab-songs"
+            onClick={() => setActiveAdminTab('songs')}
+            className={`px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 ${
+              activeAdminTab === 'songs'
+                ? 'bg-[#00fde7] text-[#00443d] shadow-lg shadow-[#00fde7]/20 scale-105'
+                : 'bg-[#141c00] text-[#92b900] hover:text-white border border-white/5'
+            }`}
+          >
+            <Music size={16} />
+            <span>Add Song</span>
+          </button>
+
+          <button
             id="admin-tab-logs"
             onClick={() => setActiveAdminTab('logs')}
             className={`px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 ${
@@ -457,6 +520,217 @@ export const AdminPortalScreen: React.FC<AdminPortalScreenProps> = ({
           onShowToast={showToast}
           onLogAction={logAdminAction}
         />
+      )}
+
+      {/* TAB: ADD SONG */}
+      {activeAdminTab === 'songs' && (
+        <section className="bg-[#141c00] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-xl">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
+            <div className="w-10 h-10 rounded-xl bg-[#00fde7]/10 border border-[#00fde7]/30 flex items-center justify-center text-[#00fde7] shrink-0">
+              <Music size={20} />
+            </div>
+            <div>
+              <h2 className="font-serif-heading font-bold text-xl text-white">Add New Song to Catalog</h2>
+              <p className="text-xs text-[#92b900] mt-0.5">Fill in the track details. The song will be immediately available to all users.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleAddSong} className="space-y-6">
+            {/* Row 1 — Title + Artist */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#cafd1e] mb-1.5">Song Title <span className="text-[#ff5b5b]">*</span></label>
+                <input
+                  type="text" required value={songTitle}
+                  onChange={e => setSongTitle(e.target.value)}
+                  placeholder="e.g. Kesariya (Lo-Fi Reprise)"
+                  className="w-full bg-[#0a1000] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[#00fde7] transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#cafd1e] mb-1.5">Artist(s) <span className="text-[#ff5b5b]">*</span></label>
+                <input
+                  type="text" required value={songArtist}
+                  onChange={e => setSongArtist(e.target.value)}
+                  placeholder="e.g. Arijit Singh & Saregama Labs"
+                  className="w-full bg-[#0a1000] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[#00fde7] transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Row 2 — Album + Genre + Language */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#cafd1e] mb-1.5">Album (optional)</label>
+                <input
+                  type="text" value={songAlbum}
+                  onChange={e => setSongAlbum(e.target.value)}
+                  placeholder="e.g. Bollywood Lo-Fi Chillout"
+                  className="w-full bg-[#0a1000] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[#00fde7] transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#cafd1e] mb-1.5">Genre</label>
+                <select value={songGenre} onChange={e => setSongGenre(e.target.value as Track['genre'])}
+                  className="w-full bg-[#0a1000] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-[#00fde7]">
+                  <option value="Hindi & Bollywood">Hindi & Bollywood</option>
+                  <option value="Classical & Ragas">Classical & Ragas</option>
+                  <option value="Sufi & Devotional">Sufi & Devotional</option>
+                  <option value="Lo-Fi">Lo-Fi</option>
+                  <option value="Binaural">Binaural</option>
+                  <option value="Ambient">Ambient</option>
+                  <option value="Soundtrack">Soundtrack</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#cafd1e] mb-1.5">Language</label>
+                <select value={songLanguage} onChange={e => setSongLanguage(e.target.value as Track['language'])}
+                  className="w-full bg-[#0a1000] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-[#00fde7]">
+                  <option value="Hindi">Hindi</option>
+                  <option value="Instrumental">Instrumental</option>
+                  <option value="Sanskrit">Sanskrit</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Row 3 — Duration + Audio Preset + Mood Tag */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#cafd1e] mb-1.5">Duration</label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <input type="number" min={0} max={59} value={songDurationMin}
+                      onChange={e => setSongDurationMin(Number(e.target.value))}
+                      className="w-full bg-[#0a1000] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-[#00fde7] text-center"
+                    />
+                    <p className="text-[10px] text-[#92b900] text-center mt-0.5">min</p>
+                  </div>
+                  <span className="text-[#92b900] font-bold pb-4">:</span>
+                  <div className="flex-1">
+                    <input type="number" min={0} max={59} value={songDurationSec}
+                      onChange={e => setSongDurationSec(Number(e.target.value))}
+                      className="w-full bg-[#0a1000] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-[#00fde7] text-center"
+                    />
+                    <p className="text-[10px] text-[#92b900] text-center mt-0.5">sec</p>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#cafd1e] mb-1.5">Audio Preset</label>
+                <select value={songAudioPreset} onChange={e => setSongAudioPreset(e.target.value as Track['audioPreset'])}
+                  className="w-full bg-[#0a1000] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-[#00fde7]">
+                  <option value="bollywood_lofi">Bollywood Lo-Fi</option>
+                  <option value="hindi_acoustic">Hindi Acoustic</option>
+                  <option value="sufi_meditation">Sufi Meditation</option>
+                  <option value="binaural_flow">Binaural Flow</option>
+                  <option value="binaural_om">Binaural Om</option>
+                  <option value="deep_ambient">Deep Ambient</option>
+                  <option value="lofi_synth">Lo-Fi Synth</option>
+                  <option value="rain_city">Rain City</option>
+                  <option value="piano_reverb">Piano Reverb</option>
+                  <option value="chill_pulse">Chill Pulse</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#cafd1e] mb-1.5">Mood Tag (optional)</label>
+                <input type="text" value={songMoodTag} onChange={e => setSongMoodTag(e.target.value)}
+                  placeholder="e.g. Vintage Nostalgia"
+                  className="w-full bg-[#0a1000] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[#00fde7] transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Row 4 — Cover + Description */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#cafd1e] mb-1.5">Cover Art URL (or upload below)</label>
+                <input type="url" value={songCoverUrl} onChange={e => { setSongCoverUrl(e.target.value); setSongCoverPreview(null); }}
+                  placeholder="https://..."
+                  className="w-full bg-[#0a1000] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[#00fde7] transition-colors"
+                />
+                {/* File upload */}
+                <label className="mt-2 flex items-center gap-2 cursor-pointer text-xs text-[#92b900] hover:text-[#00fde7] transition-colors">
+                  <FileImage size={14} />
+                  <span>Or upload from device</span>
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = ev => setSongCoverPreview(ev.target?.result as string);
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+                {(songCoverPreview || songCoverUrl) && (
+                  <div className="mt-2 w-16 h-16 rounded-xl overflow-hidden border border-[#00fde7]/30">
+                    <img src={songCoverPreview || songCoverUrl} alt="cover preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#cafd1e] mb-1.5">Description (optional)</label>
+                <textarea value={songDescription} onChange={e => setSongDescription(e.target.value)}
+                  rows={3} placeholder="Short description of this track..."
+                  className="w-full bg-[#0a1000] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[#00fde7] transition-colors resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Row 5 — Optional: Binaural Freq + Raga Time + Pro flag */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-[#0a1000] rounded-2xl border border-white/5">
+              <div>
+                <label className="block text-xs font-semibold text-[#cafd1e] mb-1.5">Binaural Freq Hz (optional)</label>
+                <input type="number" value={songBinauralFreq} onChange={e => setSongBinauralFreq(e.target.value)}
+                  placeholder="e.g. 40"
+                  className="w-full bg-[#141c00] border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-[#00fde7]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#cafd1e] mb-1.5">Raga Time (optional)</label>
+                <select value={songRagaTime} onChange={e => setSongRagaTime(e.target.value as Track['ragaTime'])}
+                  className="w-full bg-[#141c00] border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-[#00fde7]">
+                  <option value="">— None —</option>
+                  <option value="Dawn (Bhairav)">Dawn (Bhairav)</option>
+                  <option value="Morning (Todi)">Morning (Todi)</option>
+                  <option value="Afternoon (Sarang)">Afternoon (Sarang)</option>
+                  <option value="Sunset/Evening (Yaman)">Sunset/Evening (Yaman)</option>
+                  <option value="Midnight (Darbari)">Midnight (Darbari)</option>
+                </select>
+              </div>
+              <div className="flex items-center pt-5">
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-[#cafd1e]">
+                  <input type="checkbox" checked={songIsPro} onChange={e => setSongIsPro(e.target.checked)}
+                    className="w-4 h-4 rounded bg-[#0a1000] accent-[#ff5b5b]"
+                  />
+                  <span>PRO-only track</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Submit */}
+            <div className="flex justify-end gap-3 pt-2 border-t border-white/10">
+              <button type="button"
+                onClick={() => {
+                  setSongTitle(''); setSongArtist(''); setSongAlbum('');
+                  setSongCoverUrl(''); setSongCoverPreview(null); setSongDescription('');
+                  setSongMoodTag(''); setSongBinauralFreq(''); setSongRagaTime('');
+                  setSongIsPro(false); setSongDurationMin(3); setSongDurationSec(30);
+                }}
+                className="px-5 py-2.5 bg-white/5 hover:bg-white/10 text-[#cafd1e] rounded-xl text-xs font-semibold transition-colors"
+              >
+                Clear Form
+              </button>
+              <button type="submit"
+                className="px-6 py-2.5 bg-[#00fde7] hover:bg-[#49dbf4] text-[#00443d] rounded-xl text-sm font-bold shadow-lg shadow-[#00fde7]/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
+              >
+                <Plus size={16} />
+                <span>Add Song to Catalog</span>
+              </button>
+            </div>
+          </form>
+        </section>
       )}
 
       {/* TAB 2: USER MANAGEMENT DIRECTORY */}

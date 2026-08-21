@@ -353,6 +353,10 @@ export default function App() {
     setAlbums((prev) => [newAlbum, ...prev]);
   };
 
+  const handleAddTrack = (newTrack: Track) => {
+    setTracks((prev) => [newTrack, ...prev]);
+  };
+
   const handleUpdateAlbumDetails = (updatedAlbum: Album) => {
     setAlbums((prev) =>
       prev.map((alb) => (alb.id === updatedAlbum.id ? updatedAlbum : alb))
@@ -552,6 +556,7 @@ export default function App() {
               onUpdateTrackPoster={handleUpdateTrackPoster}
               onAddAlbum={handleAddAlbum}
               onUpdateAlbumDetails={handleUpdateAlbumDetails}
+              onAddTrack={handleAddTrack}
             />
           )}
 
