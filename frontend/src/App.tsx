@@ -3,6 +3,7 @@ import { ScreenName, Track, Playlist, UserProfile, Album } from './types';
 import { initialUser, allTracks, initialPlaylists, downloadedAlbums } from './data/musicData';
 import { defaultUsers } from './data/userData';
 import { audioEngine } from './services/audioService';
+import { authAPI, getAuthToken, clearAuthToken, setAuthToken } from './services/apiService';
 import { WelcomeScreen } from './screens/WelcomeScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { HomeScreen } from './screens/HomeScreen';
@@ -309,6 +310,7 @@ export default function App() {
   const handleLogout = () => {
     setIsPlaying(false);
     audioEngine.pause();
+    clearAuthToken();
     setCurrentScreen('welcome');
   };
 

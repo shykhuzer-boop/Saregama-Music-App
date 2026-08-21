@@ -13,10 +13,12 @@ import {
   CheckCircle2, 
   AlertCircle,
   ShieldAlert,
-  ArrowLeft
+  ArrowLeft,
+  Loader2
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { defaultUsers } from '../data/userData';
+import { authAPI, setAuthToken } from '../services/apiService';
 
 interface AuthScreenProps {
   onSuccess: (user: UserProfile) => void;
@@ -67,54 +69,67 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const heroImage =
     'https://lh3.googleusercontent.com/aida-public/AB6AXuC5MQV-SRgDrT91DXM7MZI7Ckm6GVxwuKvh9gGtPjZfw80KYJGI8C2VjFQyMRVMjjDJV1bI6Z3d_eBu1eg7FRmxM6upV-CZn1UTkJOJxnGnAiN1XLnGiWiO17_0QJjgxm9DAz8bySqnv4dguhgKa_tusxoWdhd-MHGTKiSGN7yFOigTUTLIPIcVpg-VAolY3YZ3iFXl6YGog3lZM4Q1FFx0OvBFjk6aZd1ayzJzM-YnRcHW33paa7x3';
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setIsLoading(true);
 
-    const emailTrimmed = signInEmail.trim().toLowerCase();
-    const userFound = usersList.find((u) => u.email.toLowerCase() === emailTrimmed);
+    try {
+      const result = await authAPI.login(signInEmail.trim(), signInPassword);
 
-    if (!userFound) {
-      // Allow fallback creation or login if demo email
-      if (emailTrimmed.includes('@')) {
-        const newUser: UserProfile = {
-          id: `usr-${Date.now()}`,
-          name: emailTrimmed.split('@')[0].replace('.', ' ').toUpperCase(),
-          email: emailTrimmed,
-          avatarUrl: sampleAvatars[0],
-          isPro: false,
-          planName: 'Free Tier',
-          role: 'user',
-          status: 'active',
-          offlineStorageUsedMB: 0,
-          maxStorageMB: 8000,
-          audioQuality: 'High (320kbps)',
-          downloadOnlyOnWifi: true,
-          joinedDate: new Date().toISOString().split('T')[0],
-          lastActive: 'Just now',
-          isStudentVerified: false
-        };
-        if (onRegisterUser) onRegisterUser(newUser);
-        onSuccess(newUser);
+      if (!result.success) {
+        setErrorMessage(result.message || 'Login failed. Please try again.');
+        setIsLoading(false);
         return;
       }
-      setErrorMessage('Account not found. Please check your email or click Sign Up.');
-      return;
-    }
 
-    if (userFound.status === 'suspended') {
-      setErrorMessage('This account has been suspended by the Saregama Administrator. Please contact support.');
-      return;
-    }
+      const { user: loggedInUser, token } = result.data!;
+      setAuthToken(token);
 
-    // Success login
-    setSuccessMessage(`Welcome back, ${userFound.name}!`);
-    setTimeout(() => {
-      onSuccess(userFound);
-    }, 400);
+      // Map backend user to frontend UserProfile
+      const userProfile: UserProfile = {
+        id: loggedInUser.id,
+        name: loggedInUser.name,
+        email: loggedInUser.email,
+        avatarUrl: loggedInUser.avatarUrl || sampleAvatars[0],
+        isPro: loggedInUser.isPro,
+        planName: loggedInUser.planName,
+        role: loggedInUser.role,
+        status: loggedInUser.status,
+        offlineStorageUsedMB: loggedInUser.offlineStorageUsedMB || 0,
+        maxStorageMB: loggedInUser.maxStorageMB || 8000,
+        audioQuality: loggedInUser.audioQuality || 'High (320kbps)',
+        downloadOnlyOnWifi: loggedInUser.downloadOnlyOnWifi ?? true,
+        joinedDate: loggedInUser.createdAt ? new Date(loggedInUser.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        lastActive: loggedInUser.lastActive || 'Just now',
+        isStudentVerified: loggedInUser.isStudentVerified || false,
+      };
+
+      if (onRegisterUser) onRegisterUser(userProfile);
+      setSuccessMessage(result.message || `Welcome back, ${userProfile.name}!`);
+      setTimeout(() => {
+        onSuccess(userProfile);
+      }, 400);
+    } catch {
+      // Fallback to client-side auth if backend unavailable
+      const emailTrimmed = signInEmail.trim().toLowerCase();
+      const userFound = usersList.find((u) => u.email.toLowerCase() === emailTrimmed);
+      if (userFound && userFound.status !== 'suspended') {
+        setSuccessMessage(`Welcome back, ${userFound.name}! (Offline)`);
+        setTimeout(() => onSuccess(userFound), 400);
+      } else if (userFound?.status === 'suspended') {
+        setErrorMessage('This account has been suspended.');
+      } else {
+        setErrorMessage('Backend unavailable. Please try again later.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -135,44 +150,115 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       return;
     }
 
-    // Check if email already registered
-    const existing = usersList.find((u) => u.email.toLowerCase() === signUpEmail.trim().toLowerCase());
-    if (existing) {
-      setErrorMessage('An account with this email already exists. Please sign in instead.');
-      return;
+    setIsLoading(true);
+
+    try {
+      const result = await authAPI.register({
+        name: signUpName.trim(),
+        email: signUpEmail.trim(),
+        password: signUpPassword,
+        isStudent,
+        universityName: isStudent ? universityName : undefined,
+        avatarUrl: selectedAvatar,
+      });
+
+      if (!result.success) {
+        setErrorMessage(result.message || 'Registration failed.');
+        setIsLoading(false);
+        return;
+      }
+
+      const { user: newBackendUser, token } = result.data!;
+      setAuthToken(token);
+
+      const newUser: UserProfile = {
+        id: newBackendUser.id,
+        name: newBackendUser.name,
+        email: newBackendUser.email,
+        avatarUrl: newBackendUser.avatarUrl || selectedAvatar,
+        isPro: newBackendUser.isPro,
+        planName: newBackendUser.planName,
+        role: newBackendUser.role,
+        status: newBackendUser.status,
+        offlineStorageUsedMB: 0,
+        maxStorageMB: newBackendUser.maxStorageMB || 8000,
+        audioQuality: newBackendUser.audioQuality || 'High (320kbps)',
+        downloadOnlyOnWifi: true,
+        joinedDate: new Date().toISOString().split('T')[0],
+        lastActive: 'Just now',
+        isStudentVerified: newBackendUser.isStudentVerified || false,
+      };
+
+      if (onRegisterUser) onRegisterUser(newUser);
+      setSuccessMessage('Account created successfully! Loading your library...');
+      setTimeout(() => onSuccess(newUser), 500);
+    } catch {
+      // Fallback to client-side registration if backend unavailable
+      const newUser: UserProfile = {
+        id: `usr-${Date.now()}`,
+        name: signUpName.trim(),
+        email: signUpEmail.trim().toLowerCase(),
+        avatarUrl: selectedAvatar,
+        isPro: isStudent,
+        planName: isStudent ? 'Student 4-Year Pass' : 'Free Tier',
+        role: 'user',
+        status: 'active',
+        offlineStorageUsedMB: 0,
+        maxStorageMB: isStudent ? 32000 : 8000,
+        audioQuality: isStudent ? 'Hi-Res Lossless (FLAC)' : 'High (320kbps)',
+        downloadOnlyOnWifi: true,
+        joinedDate: new Date().toISOString().split('T')[0],
+        lastActive: 'Just now',
+        isStudentVerified: isStudent,
+      };
+      if (onRegisterUser) onRegisterUser(newUser);
+      setSuccessMessage('Account created (offline mode).');
+      setTimeout(() => onSuccess(newUser), 500);
+    } finally {
+      setIsLoading(false);
     }
-
-    const newUser: UserProfile = {
-      id: `usr-${Date.now()}`,
-      name: signUpName.trim(),
-      email: signUpEmail.trim().toLowerCase(),
-      avatarUrl: selectedAvatar,
-      isPro: isStudent,
-      planName: isStudent ? 'Student 4-Year Pass' : 'Free Tier',
-      role: 'user',
-      status: 'active',
-      offlineStorageUsedMB: 0,
-      maxStorageMB: isStudent ? 32000 : 8000,
-      audioQuality: isStudent ? 'Hi-Res Lossless (FLAC)' : 'High (320kbps)',
-      downloadOnlyOnWifi: true,
-      joinedDate: new Date().toISOString().split('T')[0],
-      lastActive: 'Just now',
-      isStudentVerified: isStudent
-    };
-
-    if (onRegisterUser) {
-      onRegisterUser(newUser);
-    }
-
-    setSuccessMessage('Account created successfully! Loading your library...');
-    setTimeout(() => {
-      onSuccess(newUser);
-    }, 500);
   };
 
-  const handleQuickLogin = (email: string) => {
-    const user = usersList.find((u) => u.email.toLowerCase() === email.toLowerCase()) || defaultUsers[0];
-    onSuccess(user);
+  const handleQuickLogin = async (email: string) => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      // Quick login uses the default password for demo accounts
+      const defaultPasswords: Record<string, string> = {
+        'deepak.kumar@saregama.com': 'password123',
+        'admin@saregama.com': 'admin123',
+        'aanya.sharma@stanford.edu': 'student123',
+      };
+      const password = defaultPasswords[email.toLowerCase()] || 'password123';
+      const result = await authAPI.login(email, password);
+
+      if (result.success && result.data) {
+        setAuthToken(result.data.token);
+        const u = result.data.user;
+        const userProfile: UserProfile = {
+          id: u.id, name: u.name, email: u.email,
+          avatarUrl: u.avatarUrl || sampleAvatars[0],
+          isPro: u.isPro, planName: u.planName, role: u.role, status: u.status,
+          offlineStorageUsedMB: u.offlineStorageUsedMB || 0,
+          maxStorageMB: u.maxStorageMB || 8000,
+          audioQuality: u.audioQuality || 'High (320kbps)',
+          downloadOnlyOnWifi: u.downloadOnlyOnWifi ?? true,
+          joinedDate: u.createdAt ? new Date(u.createdAt).toISOString().split('T')[0] : '',
+          lastActive: u.lastActive || 'Just now',
+          isStudentVerified: u.isStudentVerified || false,
+        };
+        onSuccess(userProfile);
+      } else {
+        // Fallback to client-side
+        const user = usersList.find((u) => u.email.toLowerCase() === email.toLowerCase()) || defaultUsers[0];
+        onSuccess(user);
+      }
+    } catch {
+      const user = usersList.find((u) => u.email.toLowerCase() === email.toLowerCase()) || defaultUsers[0];
+      onSuccess(user);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

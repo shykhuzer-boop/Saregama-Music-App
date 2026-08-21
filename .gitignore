@@ -1,8 +1,29 @@
+# Dependencies
 node_modules/
-build/
-dist/
-coverage/
-.DS_Store
+frontend/node_modules/
+backend/node_modules/
+
+# Build output
+frontend/dist/
+backend/dist/
+
+# Logs
 *.log
+npm-debug.log*
+
+# Environment — never commit secrets
 .env*
 !.env.example
+!frontend/.env.example
+!backend/.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# Coverage
+coverage/
